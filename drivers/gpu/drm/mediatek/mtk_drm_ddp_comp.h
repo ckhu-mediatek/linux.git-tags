@@ -78,6 +78,18 @@ struct mtk_ddp_comp_funcs {
 			  struct drm_crtc_state *state);
 };
 
+struct mtk_ddp_comp_driver_data {
+	union {
+		struct ovl {
+			unsigned int addr_offset;
+			unsigned int fmt_rgb565;
+			unsigned int fmt_rgb888;
+		} ovl;
+		unsigned int rdma_fifo_pseudo_size;
+		unsigned int color_offset;
+	};
+};
+
 struct mtk_ddp_comp {
 	struct clk *clk;
 	void __iomem *regs;
@@ -85,6 +97,7 @@ struct mtk_ddp_comp {
 	struct device *larb_dev;
 	enum mtk_ddp_comp_id id;
 	const struct mtk_ddp_comp_funcs *funcs;
+	const struct mtk_ddp_comp_driver_data *data;
 };
 
 static inline void mtk_ddp_comp_config(struct mtk_ddp_comp *comp,

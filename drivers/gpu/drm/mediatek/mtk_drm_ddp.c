@@ -77,9 +77,10 @@ struct mtk_ddp {
 	struct clk			*clk;
 	void __iomem			*regs;
 	struct mtk_disp_mutex		mutex[10];
+	const unsigned int		*mutex_mod;
 };
 
-static const unsigned int mutex_mod[DDP_COMPONENT_ID_MAX] = {
+static const unsigned int mt8173_mutex_mod[DDP_COMPONENT_ID_MAX] = {
 	[DDP_COMPONENT_AAL] = MT8173_MUTEX_MOD_DISP_AAL,
 	[DDP_COMPONENT_COLOR0] = MT8173_MUTEX_MOD_DISP_COLOR0,
 	[DDP_COMPONENT_COLOR1] = MT8173_MUTEX_MOD_DISP_COLOR1,
@@ -247,7 +248,7 @@ void mtk_disp_mutex_add_comp(struct mtk_disp_mutex *mutex,
 		break;
 	default:
 		reg = readl_relaxed(ddp->regs + DISP_REG_MUTEX_MOD(mutex->id));
-		reg |= mutex_mod[id];
+		reg |= ddp->mutex_mod[id];
 		writel_relaxed(reg, ddp->regs + DISP_REG_MUTEX_MOD(mutex->id));
 		return;
 	}
@@ -273,7 +274,7 @@ void mtk_disp_mutex_remove_comp(struct mtk_disp_mutex *mutex,
 		break;
 	default:
 		reg = readl_relaxed(ddp->regs + DISP_REG_MUTEX_MOD(mutex->id));
-		reg &= ~mutex_mod[id];
+		reg &= ~(ddp->mutex_mod[id]);
 		writel_relaxed(reg, ddp->regs + DISP_REG_MUTEX_MOD(mutex->id));
 		break;
 	}
@@ -326,6 +327,8 @@ static int mtk_ddp_probe(struct platform_device *pdev)
 		return PTR_ERR(ddp->regs);
 	}
 
+	ddp->mutex_mod = of_device_get_match_data(dev);
+
 	platform_set_drvdata(pdev, ddp);
 
 	return 0;
@@ -337,7 +340,7 @@ static int mtk_ddp_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id ddp_driver_dt_match[] = {
-	{ .compatible = "mediatek,mt8173-disp-mutex" },
+	{ .compatible = "mediatek,mt8173-disp-mutex", .data = mt8173_mutex_mod},
 	{},
 };
 MODULE_DEVICE_TABLE(of, ddp_driver_dt_match);

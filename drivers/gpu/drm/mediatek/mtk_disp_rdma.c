@@ -123,7 +123,7 @@ static void mtk_rdma_config(struct mtk_ddp_comp *comp, unsigned int width,
 	 */
 	threshold = width * height * vrefresh * 4 * 7 / 1000000;
 	reg = RDMA_FIFO_UNDERFLOW_EN |
-	      RDMA_FIFO_PSEUDO_SIZE(SZ_8K) |
+	      RDMA_FIFO_PSEUDO_SIZE(comp->data->rdma_fifo_pseudo_size) |
 	      RDMA_OUTPUT_VALID_FIFO_THRESHOLD(threshold);
 	writel(reg, comp->regs + DISP_REG_RDMA_FIFO_CON);
 }
@@ -208,6 +208,8 @@ static int mtk_disp_rdma_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	priv->ddp_comp.data = of_device_get_match_data(dev);
+
 	platform_set_drvdata(pdev, priv);
 
 	ret = component_add(dev, &mtk_disp_rdma_component_ops);
@@ -224,8 +226,13 @@ static int mtk_disp_rdma_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct mtk_ddp_comp_driver_data mt8173_rdma_driver_data = {
+	.rdma_fifo_pseudo_size = SZ_8K,
+};
+
 static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
-	{ .compatible = "mediatek,mt8173-disp-rdma", },
+	{ .compatible = "mediatek,mt8173-disp-rdma",
+	  .data = &mt8173_rdma_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_rdma_driver_dt_match);
