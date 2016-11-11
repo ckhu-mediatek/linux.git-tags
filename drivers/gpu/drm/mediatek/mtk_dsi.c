@@ -94,6 +94,8 @@
 #define DSI_RACK		0x84
 #define RACK				BIT(0)
 
+#define DSI_MEM_CONTI		0x90
+
 #define DSI_PHY_LCCON		0x104
 #define LC_HS_TX_EN			BIT(0)
 #define LC_ULPM_EN			BIT(1)
@@ -125,6 +127,10 @@
 #define CLK_HS_PRPR			(0xff << 0)
 #define CLK_HS_POST			(0xff << 8)
 #define CLK_HS_EXIT			(0xff << 16)
+
+#define DSI_VM_CMD_CON		0x130
+#define VM_CMD_EN			BIT(0)
+#define TS_VFP_EN			BIT(5)
 
 #define DSI_CMDQ0		0x180
 #define CONFIG				(0xff << 0)
@@ -219,12 +225,12 @@ static void mtk_dsi_phy_timconfig(struct mtk_dsi *dsi)
 	writel(timcon3, dsi->regs + DSI_PHY_TIMECON3);
 }
 
-static void mtk_dsi_enable(struct mtk_dsi *dsi)
+static void mtk_dsi_engine_enable(struct mtk_dsi *dsi)
 {
 	mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_EN, DSI_EN);
 }
 
-static void mtk_dsi_disable(struct mtk_dsi *dsi)
+static void mtk_dsi_engine_disable(struct mtk_dsi *dsi)
 {
 	mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_EN, 0);
 }
@@ -249,7 +255,9 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 	 * mipi_ratio is mipi clk coefficient for balance the pixel clk in mipi.
 	 * we set mipi_ratio is 1.05.
 	 */
-	dsi->data_rate = dsi->vm.pixelclock * 3 * 21 / (1 * 1000 * 10);
+	dsi->data_rate = dsi->vm.pixelclock * 12 * 21;
+	dsi->data_rate /= (dsi->lanes * 1000 * 10);
+	dev_info(dev, "set mipitx's data rate: %dMHz\n", dsi->data_rate);
 
 	ret = clk_set_rate(dsi->hs_clk, dsi->data_rate * 1000000);
 	if (ret < 0) {
@@ -271,7 +279,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 		goto err_disable_engine_clk;
 	}
 
-	mtk_dsi_enable(dsi);
+	mtk_dsi_engine_enable(dsi);
 	mtk_dsi_reset_engine(dsi);
 	mtk_dsi_phy_timconfig(dsi);
 
@@ -289,7 +297,7 @@ err_refcount:
 static void mtk_dsi_clk_ulp_mode_enter(struct mtk_dsi *dsi)
 {
 	mtk_dsi_mask(dsi, DSI_PHY_LCCON, LC_HS_TX_EN, 0);
-	mtk_dsi_mask(dsi, DSI_PHY_LCCON, LC_ULPM_EN, 0);
+	mtk_dsi_mask(dsi, DSI_PHY_LCCON, LC_ULPM_EN, LC_ULPM_EN);
 }
 
 static void mtk_dsi_clk_ulp_mode_leave(struct mtk_dsi *dsi)
@@ -302,7 +310,7 @@ static void mtk_dsi_clk_ulp_mode_leave(struct mtk_dsi *dsi)
 static void mtk_dsi_lane0_ulp_mode_enter(struct mtk_dsi *dsi)
 {
 	mtk_dsi_mask(dsi, DSI_PHY_LD0CON, LD0_HS_TX_EN, 0);
-	mtk_dsi_mask(dsi, DSI_PHY_LD0CON, LD0_ULPM_EN, 0);
+	mtk_dsi_mask(dsi, DSI_PHY_LD0CON, LD0_ULPM_EN, LD0_ULPM_EN);
 }
 
 static void mtk_dsi_lane0_ulp_mode_leave(struct mtk_dsi *dsi)
@@ -338,9 +346,19 @@ static void mtk_dsi_set_mode(struct mtk_dsi *dsi)
 		if ((dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST) &&
 		    !(dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE))
 			vid_mode = BURST_MODE;
+		else
+			vid_mode = SYNC_EVENT_MODE;
 	}
 
 	writel(vid_mode, dsi->regs + DSI_MODE_CTRL);
+}
+
+static void mtk_dsi_set_vm_cmd(struct mtk_dsi *dsi)
+{
+	writel(0x3c, dsi->regs + DSI_MEM_CONTI);
+
+	mtk_dsi_mask(dsi, DSI_VM_CMD_CON, VM_CMD_EN, VM_CMD_EN);
+	mtk_dsi_mask(dsi, DSI_VM_CMD_CON, TS_VFP_EN, TS_VFP_EN);
 }
 
 static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
@@ -398,6 +416,9 @@ static void mtk_dsi_rxtx_control(struct mtk_dsi *dsi)
 		tmp_reg = 0xf << 2;
 		break;
 	}
+
+	tmp_reg |= (dsi->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS) << 6;
+	tmp_reg |= (dsi->mode_flags & MIPI_DSI_MODE_EOT_PACKET) >> 3;
 
 	writel(tmp_reg, dsi->regs + DSI_TXRX_CTRL);
 }
@@ -477,6 +498,16 @@ static void mtk_dsi_start(struct mtk_dsi *dsi)
 	writel(1, dsi->regs + DSI_START);
 }
 
+static void mtk_dsi_stop(struct mtk_dsi *dsi)
+{
+	writel(0, dsi->regs + DSI_START);
+}
+
+static void mtk_dsi_set_cmd_mode(struct mtk_dsi *dsi)
+{
+	writel(CMD_MODE, dsi->regs + DSI_MODE_CTRL);
+}
+
 static void mtk_dsi_set_interrupt_enable(struct mtk_dsi *dsi)
 {
 	u32 inten = LPRX_RD_RDY_INT_FLAG | CMD_DONE_INT_FLAG | VM_DONE_INT_FLAG;
@@ -506,7 +537,7 @@ static s32 mtk_dsi_wait_for_irq_done(struct mtk_dsi *dsi, u32 irq_flag,
 	if (ret == 0) {
 		dev_info(dsi->dev, "Wait DSI IRQ(0x%08x) Timeout\n", irq_flag);
 
-		mtk_dsi_enable(dsi);
+		mtk_dsi_engine_enable(dsi);
 		mtk_dsi_reset_engine(dsi);
 	}
 
@@ -535,6 +566,17 @@ static irqreturn_t mtk_dsi_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static s32 mtk_dsi_switch_to_cmd_mode(struct mtk_dsi *dsi, u8 irq_flag, u32 t)
+{
+	mtk_dsi_irq_data_clear(dsi, irq_flag);
+	mtk_dsi_set_cmd_mode(dsi);
+
+	if (!mtk_dsi_wait_for_irq_done(dsi, irq_flag, t))
+		return -1;
+	else
+		return 0;
+}
+
 static void mtk_dsi_poweroff(struct mtk_dsi *dsi)
 {
 	if (WARN_ON(dsi->refcount == 0))
@@ -542,11 +584,6 @@ static void mtk_dsi_poweroff(struct mtk_dsi *dsi)
 
 	if (--dsi->refcount != 0)
 		return;
-
-	mtk_dsi_lane0_ulp_mode_enter(dsi);
-	mtk_dsi_clk_ulp_mode_enter(dsi);
-
-	mtk_dsi_disable(dsi);
 
 	clk_disable_unprepare(dsi->engine_clk);
 	clk_disable_unprepare(dsi->digital_clk);
@@ -561,34 +598,44 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi)
 	if (dsi->enabled)
 		return;
 
-	if (dsi->panel) {
-		if (drm_panel_prepare(dsi->panel)) {
-			DRM_ERROR("failed to setup the panel\n");
-			return;
-		}
-	}
-
 	ret = mtk_dsi_poweron(dsi);
 	if (ret < 0) {
 		DRM_ERROR("failed to power on dsi\n");
 		return;
 	}
 
-	mtk_dsi_rxtx_control(dsi);
+	usleep_range(20000, 21000);
 
+	mtk_dsi_rxtx_control(dsi);
+	mtk_dsi_phy_timconfig(dsi);
+	mtk_dsi_ps_control_vact(dsi);
+	mtk_dsi_set_vm_cmd(dsi);
+	mtk_dsi_config_vdo_timing(dsi);
+	mtk_dsi_set_interrupt_enable(dsi);
+
+	mtk_dsi_engine_enable(dsi);
 	mtk_dsi_clk_ulp_mode_leave(dsi);
 	mtk_dsi_lane0_ulp_mode_leave(dsi);
 	mtk_dsi_clk_hs_mode(dsi, 0);
-	mtk_dsi_set_mode(dsi);
 
-	mtk_dsi_ps_control_vact(dsi);
-	mtk_dsi_config_vdo_timing(dsi);
-	mtk_dsi_set_interrupt_enable(dsi);
+	if (dsi->panel) {
+		if (drm_panel_prepare(dsi->panel)) {
+			DRM_ERROR("failed to prepare the panel\n");
+			return;
+		}
+	}
 
 	mtk_dsi_set_mode(dsi);
 	mtk_dsi_clk_hs_mode(dsi, 1);
 
 	mtk_dsi_start(dsi);
+
+	if (dsi->panel) {
+		if (drm_panel_enable(dsi->panel)) {
+			DRM_ERROR("failed to enable the panel\n");
+			return;
+		}
+	}
 
 	dsi->enabled = true;
 }
@@ -604,6 +651,21 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi)
 			return;
 		}
 	}
+
+	mtk_dsi_stop(dsi);
+	mtk_dsi_switch_to_cmd_mode(dsi, VM_DONE_INT_FLAG, 500);
+
+	if (dsi->panel) {
+		if (drm_panel_unprepare(dsi->panel)) {
+			DRM_ERROR("failed to unprepare the panel\n");
+			return;
+		}
+	}
+
+	mtk_dsi_reset_engine(dsi);
+	mtk_dsi_lane0_ulp_mode_enter(dsi);
+	mtk_dsi_clk_ulp_mode_enter(dsi);
+	mtk_dsi_engine_disable(dsi);
 
 	mtk_dsi_poweroff(dsi);
 
@@ -845,7 +907,7 @@ static void mtk_dsi_wait_for_idle(struct mtk_dsi *dsi)
 	if (timeout_ms == 0) {
 		dev_info(dsi->dev, "polling dsi wait not busy timeout!\n");
 
-		mtk_dsi_enable(dsi);
+		mtk_dsi_engine_enable(dsi);
 		mtk_dsi_reset_engine(dsi);
 	}
 }

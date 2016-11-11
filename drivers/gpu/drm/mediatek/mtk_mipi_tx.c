@@ -177,7 +177,9 @@ static int mtk_mipi_tx_pll_prepare(struct clk_hw *hw)
 
 	dev_dbg(mipi_tx->dev, "prepare: %u Hz\n", mipi_tx->data_rate);
 
-	if (mipi_tx->data_rate >= 500000000) {
+	if (mipi_tx->data_rate > 1250000000) {
+		return -EINVAL;
+	} else if (mipi_tx->data_rate >= 500000000) {
 		txdiv = 1;
 		txdiv0 = 0;
 		txdiv1 = 0;
@@ -201,6 +203,10 @@ static int mtk_mipi_tx_pll_prepare(struct clk_hw *hw)
 		return -EINVAL;
 	}
 
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_DSI_TOP_CON,
+				RG_DSI_LNT_IMP_CAL_CODE | RG_DSI_LNT_HS_BIAS_EN,
+				(8 << 4) | RG_DSI_LNT_HS_BIAS_EN);
+
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_DSI_BG_CON,
 				RG_DSI_VOUT_MSK |
 				RG_DSI_BG_CKEN | RG_DSI_BG_CORE_EN,
@@ -210,24 +216,18 @@ static int mtk_mipi_tx_pll_prepare(struct clk_hw *hw)
 
 	usleep_range(30, 100);
 
-	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_DSI_TOP_CON,
-				RG_DSI_LNT_IMP_CAL_CODE | RG_DSI_LNT_HS_BIAS_EN,
-				(8 << 4) | RG_DSI_LNT_HS_BIAS_EN);
-
-	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_DSI_CON,
-			     RG_DSI_CKG_LDOOUT_EN | RG_DSI_LDOCORE_EN);
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_DSI_CON,
+				RG_DSI_CKG_LDOOUT_EN | RG_DSI_LDOCORE_EN,
+				RG_DSI_CKG_LDOOUT_EN | RG_DSI_LDOCORE_EN);
 
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_DSI_PLL_PWR,
 				RG_DSI_MPPLL_SDM_PWR_ON |
 				RG_DSI_MPPLL_SDM_ISO_EN,
 				RG_DSI_MPPLL_SDM_PWR_ON);
 
-	mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_DSI_PLL_CON0,
-			       RG_DSI_MPPLL_PLL_EN);
-
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_DSI_PLL_CON0,
-				RG_DSI_MPPLL_TXDIV0 | RG_DSI_MPPLL_TXDIV1 |
-				RG_DSI_MPPLL_PREDIV,
+				RG_DSI_MPPLL_PREDIV | RG_DSI_MPPLL_TXDIV0 |
+				RG_DSI_MPPLL_TXDIV1 | RG_DSI_MPPLL_POSDIV,
 				(txdiv0 << 3) | (txdiv1 << 5));
 
 	/*
@@ -242,10 +242,12 @@ static int mtk_mipi_tx_pll_prepare(struct clk_hw *hw)
 		      26000000);
 	writel(pcw, mipi_tx->regs + MIPITX_DSI_PLL_CON2);
 
-	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_DSI_PLL_CON1,
-			     RG_DSI_MPPLL_SDM_FRA_EN);
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_DSI_PLL_CON1,
+				RG_DSI_MPPLL_SDM_FRA_EN,
+				RG_DSI_MPPLL_SDM_FRA_EN);
 
-	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_DSI_PLL_CON0, RG_DSI_MPPLL_PLL_EN);
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_DSI_PLL_CON0,
+				RG_DSI_MPPLL_PLL_EN, RG_DSI_MPPLL_PLL_EN);
 
 	usleep_range(20, 100);
 
