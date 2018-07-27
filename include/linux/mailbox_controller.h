@@ -27,6 +27,9 @@ struct mbox_chan;
  * @flush:	Called when a client requests transmissions to be blocking but
  *		the context doesn't allow sleeping. Typically the controller
  *		will implement a busy loop waiting for the data to flush out.
+ * @abort_data:	Called when a client relinquishes control of a chan.
+ *		This call may block too. The controller may do stuff
+ *		that need to sleep.
  * @startup:	Called when a client requests the chan. The controller
  *		could ask clients for additional parameters of communication
  *		to be provided via client's chan_data. This call may
@@ -50,6 +53,7 @@ struct mbox_chan;
 struct mbox_chan_ops {
 	int (*send_data)(struct mbox_chan *chan, void *data);
 	int (*flush)(struct mbox_chan *chan, unsigned long timeout);
+	void (*abort_data)(struct mbox_chan *chan);
 	int (*startup)(struct mbox_chan *chan);
 	void (*shutdown)(struct mbox_chan *chan);
 	bool (*last_tx_done)(struct mbox_chan *chan);

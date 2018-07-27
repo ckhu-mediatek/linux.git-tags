@@ -429,6 +429,29 @@ struct mbox_chan *mbox_request_channel_byname(struct mbox_client *cl,
 EXPORT_SYMBOL_GPL(mbox_request_channel_byname);
 
 /**
+ * mbox_abort_channel - The client abort all data in a mailbox
+ *			channel by this call.
+ * @chan: The mailbox channel to be aborted.
+ */
+void mbox_abort_channel(struct mbox_chan *chan)
+{
+	unsigned long flags;
+
+	if (!chan || !chan->cl)
+		return;
+
+	if (chan->mbox->ops->abort_data)
+		chan->mbox->ops->abort_data(chan);
+
+	/* The queued TX requests are simply aborted, no callbacks are made */
+	spin_lock_irqsave(&chan->lock, flags);
+	chan->cl = NULL;
+	chan->active_req = NULL;
+	spin_unlock_irqrestore(&chan->lock, flags);
+}
+EXPORT_SYMBOL_GPL(mbox_abort_channel);
+
+/**
  * mbox_free_channel - The client relinquishes control of a mailbox
  *			channel by this call.
  * @chan: The mailbox channel to be freed.
