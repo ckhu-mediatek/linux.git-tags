@@ -20,7 +20,9 @@ struct drm_gem_cma_object {
 	struct sg_table *sgt;
 
 	/* For objects with DMA memory allocated by GEM CMA */
+	void *cookie;
 	void *vaddr;
+	unsigned long dma_attrs;
 };
 
 #define to_drm_gem_cma_obj(gem_obj) \
@@ -72,6 +74,11 @@ int drm_gem_cma_dumb_create_internal(struct drm_file *file_priv,
 int drm_gem_cma_dumb_create(struct drm_file *file_priv,
 			    struct drm_device *drm,
 			    struct drm_mode_create_dumb *args);
+
+/* create memory region for DRM framebuffer */
+int drm_gem_cma_dumb_create_no_kmap(struct drm_file *file_priv,
+				    struct drm_device *drm,
+				    struct drm_mode_create_dumb *args);
 
 /* set vm_flags and we can change the VM attribute to other one at here */
 int drm_gem_cma_mmap(struct file *filp, struct vm_area_struct *vma);
