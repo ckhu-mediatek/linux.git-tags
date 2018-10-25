@@ -113,6 +113,7 @@ struct drm_device {
 
 	/** \name DMA support */
 	/*@{ */
+	struct device *dma_dev;		/**< Device structure of dma device */
 	struct drm_device_dma *dma;		/**< Optional pointer for DMA support */
 	/*@} */
 
