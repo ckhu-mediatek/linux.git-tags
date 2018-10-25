@@ -24,7 +24,6 @@
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp.h"
 #include "mtk_drm_ddp_comp.h"
-#include "mtk_drm_gem.h"
 #include "mtk_drm_plane.h"
 
 /**

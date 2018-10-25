@@ -15,13 +15,13 @@
 #include <drm/drmP.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_plane_helper.h>
 
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_drv.h"
 #include "mtk_drm_fb.h"
-#include "mtk_drm_gem.h"
 #include "mtk_drm_plane.h"
 
 static const u32 formats[] = {
@@ -115,7 +115,7 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	struct drm_crtc *crtc = plane->state->crtc;
 	struct drm_framebuffer *fb = plane->state->fb;
 	struct drm_gem_object *gem;
-	struct mtk_drm_gem_obj *mtk_gem;
+	struct drm_gem_cma_object *cma_obj;
 	unsigned int pitch, format;
 	dma_addr_t addr;
 
@@ -123,8 +123,8 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 		return;
 
 	gem = fb->obj[0];
-	mtk_gem = to_mtk_gem_obj(gem);
-	addr = mtk_gem->dma_addr;
+	cma_obj = to_drm_gem_cma_obj(gem);
+	addr = cma_obj->paddr;
 	pitch = fb->pitches[0];
 	format = fb->format->format;
 

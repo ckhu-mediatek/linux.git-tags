@@ -21,7 +21,6 @@
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_fb.h"
-#include "mtk_drm_gem.h"
 
 static const struct drm_framebuffer_funcs mtk_drm_fb_funcs = {
 	.create_handle = drm_gem_fb_create_handle,

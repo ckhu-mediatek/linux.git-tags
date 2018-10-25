@@ -41,7 +41,6 @@ struct mtk_mmsys_driver_data {
 
 struct mtk_drm_private {
 	struct drm_device *drm;
-	struct device *dma_dev;
 
 	unsigned int num_pipes;
 
