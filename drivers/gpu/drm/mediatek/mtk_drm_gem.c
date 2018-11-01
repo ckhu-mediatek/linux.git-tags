@@ -88,11 +88,15 @@ void mtk_drm_gem_free_object(struct drm_gem_object *obj)
 	struct mtk_drm_gem_obj *mtk_gem = to_mtk_gem_obj(obj);
 	struct mtk_drm_private *priv = obj->dev->dev_private;
 
-	if (mtk_gem->sg)
-		drm_prime_gem_destroy(obj, mtk_gem->sg);
-	else
+	if (mtk_gem->ext_sg) {
+		dma_unmap_sg(priv->dma_dev, mtk_gem->int_sg->sgl,
+			     mtk_gem->int_sg->orig_nents, DMA_BIDIRECTIONAL);
+		sg_free_table(mtk_gem->int_sg);
+		drm_prime_gem_destroy(obj, mtk_gem->ext_sg);
+	} else {
 		dma_free_attrs(priv->dma_dev, obj->size, mtk_gem->cookie,
 			       mtk_gem->dma_addr, mtk_gem->dma_attrs);
+	}
 
 	/* release file pointer to gem object. */
 	drm_gem_object_release(obj);
@@ -208,32 +212,57 @@ struct sg_table *mtk_gem_prime_get_sg_table(struct drm_gem_object *obj)
 	return sgt;
 }
 
-struct drm_gem_object *mtk_gem_prime_import_sg_table(struct drm_device *dev,
-			struct dma_buf_attachment *attach, struct sg_table *sg)
+static struct sg_table *dup_sg_table(struct sg_table *table)
 {
+	struct sg_table *new_table;
+	struct scatterlist *sg, *new_sg;
+	int i;
+
+	new_table = kzalloc(sizeof(*new_table), GFP_KERNEL);
+	if (!new_table)
+		return ERR_PTR(-ENOMEM);
+
+	if (sg_alloc_table(new_table, table->nents, GFP_KERNEL)) {
+		kfree(new_table);
+		return ERR_PTR(-ENOMEM);
+	}
+	new_sg = new_table->sgl;
+	for_each_sg(table->sgl, sg, table->nents, i) {
+		memcpy(new_sg, sg, sizeof(*sg));
+		new_sg = sg_next(new_sg);
+	}
+
+	return new_table;
+}
+
+struct drm_gem_object *mtk_gem_prime_import_sg_table(struct drm_device *dev,
+			struct dma_buf_attachment *attach,
+			struct sg_table *ext_sg)
+{
+	struct mtk_drm_private *priv = dev->dev_private;
 	struct mtk_drm_gem_obj *mtk_gem;
+	struct sg_table *int_sg;
 	int ret;
-	struct scatterlist *s;
-	unsigned int i;
-	dma_addr_t expected;
 
 	mtk_gem = mtk_drm_gem_init(dev, attach->dmabuf->size);
 
 	if (IS_ERR(mtk_gem))
 		return ERR_CAST(mtk_gem);
 
-	expected = sg_dma_address(sg->sgl);
-	for_each_sg(sg->sgl, s, sg->nents, i) {
-		if (sg_dma_address(s) != expected) {
-			DRM_ERROR("sg_table is not contiguous");
-			ret = -EINVAL;
-			goto err_gem_free;
-		}
-		expected = sg_dma_address(s) + sg_dma_len(s);
+	int_sg = dup_sg_table(ext_sg);
+	if (IS_ERR(int_sg)) {
+		ret = PTR_ERR(int_sg);
+		goto err_gem_free;
+	}
+	if (!dma_map_sg(priv->dma_dev, int_sg->sgl, int_sg->orig_nents,
+		       DMA_BIDIRECTIONAL)) {
+		ret = -ENOMEM;
+		goto err_gem_free;
 	}
 
-	mtk_gem->dma_addr = sg_dma_address(sg->sgl);
-	mtk_gem->sg = sg;
+	mtk_gem->dma_addr = sg_dma_address(int_sg->sgl);
+	mtk_gem->ext_sg = ext_sg;
+	mtk_gem->int_sg = int_sg;
 
 	return &mtk_gem->base;
 
