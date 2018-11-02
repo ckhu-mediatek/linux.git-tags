@@ -885,6 +885,13 @@
 			assigned-clocks = <&topckgen CLK_TOP_MM_SEL>;
 			assigned-clock-rates = <400000000>;
 			#clock-cells = <1>;
+			iommus = <&iommu M4U_PORT_DISP_OVL0>,
+				 <&iommu M4U_PORT_DISP_OVL1>,
+				 <&iommu M4U_PORT_DISP_RDMA0>,
+				 <&iommu M4U_PORT_DISP_RDMA1>,
+				 <&iommu M4U_PORT_DISP_RDMA2>,
+				 <&iommu M4U_PORT_DISP_WDMA0>,
+				 <&iommu M4U_PORT_DISP_WDMA1>;
 		};
 
 		mdp_rdma0: rdma@14001000 {
@@ -963,7 +970,6 @@
 			interrupts = <GIC_SPI 180 IRQ_TYPE_LEVEL_LOW>;
 			power-domains = <&scpsys MT8173_POWER_DOMAIN_MM>;
 			clocks = <&mmsys CLK_MM_DISP_OVL0>;
-			iommus = <&iommu M4U_PORT_DISP_OVL0>;
 			mediatek,larb = <&larb0>;
 		};
 
@@ -973,7 +979,6 @@
 			interrupts = <GIC_SPI 181 IRQ_TYPE_LEVEL_LOW>;
 			power-domains = <&scpsys MT8173_POWER_DOMAIN_MM>;
 			clocks = <&mmsys CLK_MM_DISP_OVL1>;
-			iommus = <&iommu M4U_PORT_DISP_OVL1>;
 			mediatek,larb = <&larb4>;
 		};
 
@@ -983,7 +988,6 @@
 			interrupts = <GIC_SPI 182 IRQ_TYPE_LEVEL_LOW>;
 			power-domains = <&scpsys MT8173_POWER_DOMAIN_MM>;
 			clocks = <&mmsys CLK_MM_DISP_RDMA0>;
-			iommus = <&iommu M4U_PORT_DISP_RDMA0>;
 			mediatek,larb = <&larb0>;
 		};
 
@@ -993,7 +997,6 @@
 			interrupts = <GIC_SPI 183 IRQ_TYPE_LEVEL_LOW>;
 			power-domains = <&scpsys MT8173_POWER_DOMAIN_MM>;
 			clocks = <&mmsys CLK_MM_DISP_RDMA1>;
-			iommus = <&iommu M4U_PORT_DISP_RDMA1>;
 			mediatek,larb = <&larb4>;
 		};
 
@@ -1003,7 +1006,6 @@
 			interrupts = <GIC_SPI 184 IRQ_TYPE_LEVEL_LOW>;
 			power-domains = <&scpsys MT8173_POWER_DOMAIN_MM>;
 			clocks = <&mmsys CLK_MM_DISP_RDMA2>;
-			iommus = <&iommu M4U_PORT_DISP_RDMA2>;
 			mediatek,larb = <&larb4>;
 		};
 
@@ -1013,7 +1015,6 @@
 			interrupts = <GIC_SPI 185 IRQ_TYPE_LEVEL_LOW>;
 			power-domains = <&scpsys MT8173_POWER_DOMAIN_MM>;
 			clocks = <&mmsys CLK_MM_DISP_WDMA0>;
-			iommus = <&iommu M4U_PORT_DISP_WDMA0>;
 			mediatek,larb = <&larb0>;
 		};
 
@@ -1023,7 +1024,6 @@
 			interrupts = <GIC_SPI 186 IRQ_TYPE_LEVEL_LOW>;
 			power-domains = <&scpsys MT8173_POWER_DOMAIN_MM>;
 			clocks = <&mmsys CLK_MM_DISP_WDMA1>;
-			iommus = <&iommu M4U_PORT_DISP_WDMA1>;
 			mediatek,larb = <&larb4>;
 		};
 
