@@ -395,8 +395,6 @@ static void mtk_ddp_sout_sel(void __iomem *config_regs,
 			       config_regs + DISP_REG_CONFIG_OUT_SEL);
 		writel_relaxed(DSI_SEL_IN_RDMA,
 			       config_regs + DISP_REG_CONFIG_DSI_SEL);
-		writel_relaxed(DPI_SEL_IN_BLS,
-			       config_regs + DISP_REG_CONFIG_DPI_SEL);
 	}
 }
 
