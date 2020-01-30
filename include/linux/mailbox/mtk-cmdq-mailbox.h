@@ -83,7 +83,6 @@ struct cmdq_pkt {
 	dma_addr_t		pa_base;
 	size_t			cmd_buf_size; /* command occupied size */
 	size_t			buf_size; /* real buffer size */
-	struct cmdq_task_cb	cb;
 	struct cmdq_task_cb	async_cb;
 	void			*cl;
 };
