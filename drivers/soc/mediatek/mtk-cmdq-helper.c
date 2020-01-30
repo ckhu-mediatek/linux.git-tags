@@ -318,8 +318,6 @@ static void cmdq_pkt_flush_async_cb(struct cmdq_cb_data data)
 		spin_unlock_irqrestore(&client->lock, flags);
 	}
 
-	dma_sync_single_for_cpu(client->chan->mbox->dev, pkt->pa_base,
-				pkt->cmd_buf_size, DMA_TO_DEVICE);
 	if (cb->cb) {
 		data.data = cb->data;
 		cb->cb(data);
@@ -336,9 +334,6 @@ int cmdq_pkt_flush_async(struct cmdq_pkt *pkt, cmdq_async_flush_cb cb,
 	pkt->cb.data = data;
 	pkt->async_cb.cb = cmdq_pkt_flush_async_cb;
 	pkt->async_cb.data = pkt;
-
-	dma_sync_single_for_device(client->chan->mbox->dev, pkt->pa_base,
-				   pkt->cmd_buf_size, DMA_TO_DEVICE);
 
 	if (client->timeout_ms != CMDQ_NO_TIMEOUT) {
 		spin_lock_irqsave(&client->lock, flags);
